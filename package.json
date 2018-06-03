@@ -1,0 +1,19 @@
+{
+    "name": "db-server",
+    "description": "",
+    "version": "0.0.1",
+    "main": "src/app.js",
+    "repository": {
+        "type": "git",
+        "url": "https://github.com/noirgif/database-frontend"
+    },
+    "scripts": {
+        "test": "node src/test.js",
+        "start": "node src/app.js"
+    },
+    "dependencies": {
+        "express": "",
+        "mysql": ""
+    },
+    "keywords": []
+}

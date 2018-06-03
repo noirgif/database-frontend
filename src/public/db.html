@@ -1,0 +1,44 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+    <meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
+    <title>Test</title>
+    <script src="/public/js/misc.js"></script>
+    <script src="/public/js/jquery-3.3.1.min.js"></script>
+    <script src="/public/js/bootstrap.min.js"></script>
+    <link rel="stylesheet" href="/public/css/bootstrap.min.css">
+</head>
+
+<body onload="generateContents()">
+    <nav class="navbar navbar-light flex-column flex-md-row bd-navbar" style="background-color: #e3f2fd;">
+        <span class="navbar-text">
+            Database Management
+        </span>
+    </nav>
+    <div class="container-fluid">
+        <div class="row flex-xl-roadmap">
+            <div class="col-12 col-md-3 col-xl-2 bd-sidebar">
+                <nav class="bd-links" id="bd-docs-nav">
+                    <div class="list-group">
+                        <div class="list-group-item">
+                            System Overview
+                        </div>
+                        <div id="tables">
+                        </div>
+                    </div>
+                </nav>
+            </div>
+
+            <main class="col-12 col-md-9 col-xl-8 py-md-3 pl-md-5 bd-content" role="main" id="mainform">
+                <table id="data" class="table table-hover table-bordered">
+                    <th></th>
+                    <tbody id="datacontent">
+                    </tbody>
+                </table>
+            </main>
+        </div>
+    </div>
+</body>
+
+</html>
