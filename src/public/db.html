@@ -11,10 +11,20 @@
 </head>
 
 <body onload="generateContents()">
-    <nav class="navbar navbar-light flex-column flex-md-row bd-navbar" style="background-color: #e3f2fd;">
+    <nav class="navbar navbar-light flex-column flex-md-row bd-navbar navbar-expand-lg" style="background-color: #e3f2fd;">
         <span class="navbar-text">
             Database Management
         </span>
+        <ul class="navbar-nav mr-auto">
+            <li class="nav-item active">
+                <a class="nav-link" href="/">Home</a>
+            </li>
+            <li class="nav-item">
+                <a class="nav-link" href="/charts">Charts
+                    <span class="sr-only">(current)</span>
+                </a>
+            </li>
+        </ul>
     </nav>
     <div class="container-fluid">
         <div class="row flex-xl-roadmap">
@@ -32,7 +42,6 @@
 
             <main class="col-12 col-md-9 col-xl-8 py-md-3 pl-md-5 bd-content" role="main" id="mainform">
                 <table id="data" class="table table-hover table-bordered">
-                    <th></th>
                     <tbody id="datacontent">
                     </tbody>
                 </table>

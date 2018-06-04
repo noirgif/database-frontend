@@ -30,9 +30,9 @@ app.get('/(:table/show)?$', function (req, res) {
     res.sendFile('public/db.html', { root: __dirname });
 });
 
-app.use('/public', express.static(__dirname + '/public'));
+app.use('^/public', express.static(__dirname + '/public'));
 
-app.get('/tables', function (req, res) {
+app.get('^/tables$', function (req, res) {
     var query = connection.query('show tables');
     var rows = [];
     query.on('err', (err) => {
@@ -48,7 +48,11 @@ app.get('/tables', function (req, res) {
         });
 });
 
-app.get('/:table/get', function (req, res) {
+app.get('^/charts$', function (req, res) {
+    res.sendFile('public/charts.html', { root: __dirname });
+});
+
+app.get('^/:table/get$', function (req, res) {
     var table = req.params['table'];
     if (!table.match("^[a-zA-Z_][a-zA-Z0-9@$#_]{0,127}$")) {
         res.status(400).end('Invalid table name: ' + table);
@@ -68,7 +72,7 @@ app.get('/:table/get', function (req, res) {
     }
 });
 
-app.get('/:table/getcolumns', function (req, res) {
+app.get('^/:table/getcolumns$', function (req, res) {
     var table = req.params['table'];
     if (!table.match("^[a-zA-Z_][a-zA-Z0-9@$#_]{0,127}$")) {
         res.status(400).end('Invalid table name: ' + table);
@@ -83,7 +87,7 @@ app.get('/:table/getcolumns', function (req, res) {
     }
 });
 
-app.post('/:table/insert', function (req, res) {
+app.post('^/:table/insert$', function (req, res) {
     var table = req.params.table;
     connection.query('INSERT INTO ?? SET ?', [table, req.body], function (err, result, fields) {
         if (err) {
@@ -96,7 +100,7 @@ app.post('/:table/insert', function (req, res) {
     });
 });
 
-app.get('/:table/delete', function (req, res) {
+app.get('^/:table/delete$', function (req, res) {
     var id = req.query.id;
     var table = req.params.table;
     connection.query('DELETE FROM ?? WHERE ID = ?', [table, id], function (err, result, fields) {
@@ -110,7 +114,7 @@ app.get('/:table/delete', function (req, res) {
     });
 });
 
-app.post('/:table/update', function (req, res) {
+app.post('^/:table/update$', function (req, res) {
     var id = req.query.id;
     var table = req.params.table;
     connection.query('UPDATE ?? SET ? WHERE ID = ?', [table, req.body, id], function (err, result, fields) {
