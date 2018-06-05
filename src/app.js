@@ -3,12 +3,13 @@ var url = require('url');
 var app = express();
 var mysql = require('mysql'); // Mysql client
 
+var database = 'bank';
 // Connection string parameters.
 var connection = mysql.createConnection({
     user: 'root',
     password: '',
     server: 'localhost',
-    database: 'library'
+    database: database
 });
 
 // Start server and listen on http://localhost:8081/
@@ -24,7 +25,7 @@ var sqlerrorhandler = function (req, res, err) {
 }
 
 app.use(express.json());
-app.use(express.urlencoded());
+app.use(express.urlencoded({ extended: true }));
 
 app.get('/(:table/show)?$', function (req, res) {
     res.sendFile('public/db.html', { root: __dirname });
@@ -40,7 +41,7 @@ app.get('^/tables$', function (req, res) {
     })
         .on('result', (row, index) => {
             connection.pause();
-            rows.push(row["Tables_in_library"])
+            rows.push(row["Tables_in_" + database])
             connection.resume();
         })
         .on('end', () => {
@@ -53,42 +54,59 @@ app.get('^/charts$', function (req, res) {
 });
 
 app.get('^/:table/get$', function (req, res) {
-    var table = req.params['table'];
-    if (!table.match("^[a-zA-Z_][a-zA-Z0-9@$#_]{0,127}$")) {
-        res.status(400).end('Invalid table name: ' + table);
-    }
-    else {
-        connection.query('SELECT 1 FROM ?? LIMIT 1;', [table], function (err, results, fields) {
-            if (err)
-                sqlerrorhandler(req, res, err);
-            else
-                connection.query('SELECT * FROM ??', [table], function (err, results, fields) {
-                    if (err)
-                        sqlerrorhandler(req, res, err);
-                    else
-                        res.end(JSON.stringify(results)); // Result in JSON format
-                });
-        });
-    }
+    var table = decodeURI(req.params.table);
+    connection.query('SELECT 1 FROM ?? LIMIT 1;', [table], function (err, results, fields) {
+        if (err)
+            sqlerrorhandler(req, res, err);
+        else
+            connection.query('SELECT * FROM ??', [table], function (err, results, fields) {
+                if (err)
+                    sqlerrorhandler(req, res, err);
+                else
+                    res.end(JSON.stringify(results)); // Result in JSON format
+            });
+    });
+});
+
+app.post('^/:table/get$', function (req, res) {
+    var table = decodeURI(req.params.table);
+    connection.query('SELECT 1 FROM ?? LIMIT 1;', [table], function (err, results, fields) {
+        if (err)
+            sqlerrorhandler(req, res, err);
+        else
+        {
+            var condition = [];
+            var conditionstring = '';
+            var querystring = 'SELECT * from ??';
+            for (key in req.body)
+            {
+                condition.push(connection.escapeId(key) + '=' + connection.escape(req.body[key]));
+            }
+            conditionstring = condition.join(' AND ')
+            if (conditionstring)
+                querystring = querystring + ' WHERE ' + conditionstring;
+            connection.query(querystring, [table], function (err, results, fields) {
+                if (err)
+                    sqlerrorhandler(req, res, err);
+                else
+                    res.end(JSON.stringify(results)); // Result in JSON format
+            });
+        }
+    });
 });
 
 app.get('^/:table/getcolumns$', function (req, res) {
-    var table = req.params['table'];
-    if (!table.match("^[a-zA-Z_][a-zA-Z0-9@$#_]{0,127}$")) {
-        res.status(400).end('Invalid table name: ' + table);
-    }
-    else {
-        connection.query('SHOW COLUMNS FROM ??', [table], function (err, results, fields) {
-            if (err)
-                sqlerrorhandler(req, res, err);
-            else
-                res.end(JSON.stringify(results.map(row => row.Field))); // Result in JSON format
-        });
-    }
+    var table = decodeURI(req.params.table);
+    connection.query('SHOW COLUMNS FROM ??', [table], function (err, results, fields) {
+        if (err)
+            sqlerrorhandler(req, res, err);
+        else
+            res.end(JSON.stringify(results.map(row => row.Field))); // Result in JSON format
+    });
 });
 
 app.post('^/:table/insert$', function (req, res) {
-    var table = req.params.table;
+    var table = decodeURI(req.params.table);
     connection.query('INSERT INTO ?? SET ?', [table, req.body], function (err, result, fields) {
         if (err) {
             sqlerrorhandler(req, res, err);
@@ -102,7 +120,7 @@ app.post('^/:table/insert$', function (req, res) {
 
 app.get('^/:table/delete$', function (req, res) {
     var id = req.query.id;
-    var table = req.params.table;
+    var table = decodeURI(req.params.table);
     connection.query('DELETE FROM ?? WHERE ID = ?', [table, id], function (err, result, fields) {
         if (err) {
             sqlerrorhandler(req, res, err);
@@ -116,7 +134,7 @@ app.get('^/:table/delete$', function (req, res) {
 
 app.post('^/:table/update$', function (req, res) {
     var id = req.query.id;
-    var table = req.params.table;
+    var table = decodeURI(req.params.table);
     connection.query('UPDATE ?? SET ? WHERE ID = ?', [table, req.body, id], function (err, result, fields) {
         if (err) {
             sqlerrorhandler(req, res, err);

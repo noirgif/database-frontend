@@ -5,7 +5,11 @@ function setTable(tableId, tableHead, tableData) {
     var tableHeadRow = document.createElement("tr");
     tableHead.forEach(function (column) {
         var cell = document.createElement("th");
-        cell.appendChild(document.createTextNode(column));
+        var insert_column = column;
+        if (column.match('^UM_')) {
+            insert_column = column.substr(3);
+        }
+        cell.appendChild(document.createTextNode(insert_column));
         tableHeadRow.appendChild(cell);
     });
 
@@ -13,6 +17,32 @@ function setTable(tableId, tableHead, tableData) {
 
     var tableBody = document.createElement("tbody");
     tableBody.setAttribute("id", "tablecontents");
+
+    // search row
+    var srow = document.createElement("tr");
+    srow.setAttribute("id", "search_row");
+    tableHead.forEach((column, index) => {
+        var cell = document.createElement("td");
+        cell.setAttribute("name", tableHead[index]);
+        cell.setAttribute("class", "searchcell");
+        var textarea = document.createElement("textarea");
+        textarea.setAttribute("class", "form-control searchtext");
+        textarea.setAttribute("rows", 1);
+        cell.appendChild(textarea);
+        srow.appendChild(cell);
+    });
+    var searchButtonCell = document.createElement("td");
+    var searchButton = document.createElement("button");
+    searchButton.setAttribute("id", "searchbutton");
+    searchButton.setAttribute("type", "button");
+    searchButton.setAttribute("class", "btn btn-outline-primary");
+    searchButton.appendChild(document.createTextNode("Search"));
+    searchButtonCell.appendChild(searchButton);
+    srow.appendChild(searchButtonCell);
+
+    tableBody.appendChild(srow);
+
+    // data rows
     tableData.forEach(function (rowData) {
         var row = document.createElement("tr");
         row.setAttribute("id", rowData.id);
@@ -25,22 +55,33 @@ function setTable(tableId, tableHead, tableData) {
 
         rowData.data.forEach(function (cellData, index) {
             var cell = document.createElement("td");
-            cell.setAttribute("class", "datacell");
             cell.setAttribute("name", tableHead[index]);
-            var textarea = document.createElement("textarea");
-            textarea.setAttribute("class", "form-control datatext");
-            textarea.setAttribute("rows", 1);
-            textarea.setAttribute("readonly", true);
-            textarea.appendChild(document.createTextNode(cellData));
-            cell.appendChild(textarea);
+
+            if (tableHead[index].match('^UM_')) {
+                cell.setAttribute("class", "umdatacell");
+                if (cellData !== null) {
+                    cell.appendChild(document.createTextNode(cellData));
+                }
+            }
+            else {
+                cell.setAttribute("class", "datacell");
+                var textarea = document.createElement("textarea");
+                textarea.setAttribute("class", "form-control datatext");
+                textarea.setAttribute("rows", 1);
+                textarea.setAttribute("readonly", true);
+                if (cellData !== null) {
+                    textarea.appendChild(document.createTextNode(cellData));
+                }
+                cell.appendChild(textarea);
+            }
             row.appendChild(cell);
         });
         row.appendChild(modifying_buttons);
         tableBody.appendChild(row);
     });
     var inserting_row = document.createElement("tr");
-   // var inserting_cell = document.createElement("td");
-  //  inserting_cell.setAttribute("colspan", tableHead.length + 1);
+    // var inserting_cell = document.createElement("td");
+    //  inserting_cell.setAttribute("colspan", tableHead.length + 1);
 
     var new_row_button = document.createElement("td");
     new_row_button.setAttribute("colspan", tableHead.length + 1);
@@ -48,11 +89,45 @@ function setTable(tableId, tableHead, tableData) {
     new_row_button.setAttribute("onclick", "insert_row()");
     new_row_button.appendChild(document.createTextNode("Insert new row"));
 
- //   inserting_cell.appendChild(new_row_button);
+    //   inserting_cell.appendChild(new_row_button);
     inserting_row.appendChild(new_row_button);
     tableBody.appendChild(inserting_row);
 
     table.appendChild(tableBody);
+
+    $('#searchbutton').click(function () {
+        $(this).parents('#search_row').each(function () {
+            var query = {};
+            $(this).find('.searchcell').each(function () {
+                if ($(this).children('textarea').val()) {
+                    query[$(this).attr('name')] = $(this).children('textarea').val();
+                }
+            });
+            var tablepath = window.location.pathname.match('/[^/]*')[0];
+            httpPostAsync(tablepath + '/get', query, function (e, t) {
+                var contents = translate2table(JSON.parse(t));
+                if (!contents.head.length) {
+                    httpGetAsync(tablepath + '/getcolumns', function (e, t) {
+                        if (!e) {
+                            contents.head = JSON.parse(t).filter(column => column !== 'ID');
+                            console.log(contents.head);
+                            setTable("data", contents.head, contents.body);
+                        }
+                        else {
+                            console.log(e);
+                            new_alert('danger', t);
+                        }
+                    });
+                }
+                else {
+                    setTable("data", contents.head, contents.body);
+                    $(".datatext").dblclick(function () {
+                        this.removeAttribute('readonly');
+                    });
+                }
+            });
+        });
+    });
 }
 
 function insert_row() {
@@ -65,12 +140,17 @@ function insert_row() {
             new_row.setAttribute("class", "buffered-row");
             columns.forEach(function (column) {
                 var cell = document.createElement("td");
-                cell.setAttribute("class", "datacell");
                 cell.setAttribute("name", column);
-                var textarea = document.createElement("textarea");
-                textarea.setAttribute("class", "form-control datatext");
-                textarea.setAttribute("rows", 1);
-                cell.appendChild(textarea);
+                if (column.match('^UM_')) {
+                    cell.setAttribute("class", "umdatacell");
+                }
+                else {
+                    cell.setAttribute("class", "datacell");
+                    var textarea = document.createElement("textarea");
+                    textarea.setAttribute("class", "form-control datatext");
+                    textarea.setAttribute("rows", 1);
+                    cell.appendChild(textarea);
+                }
                 new_row.appendChild(cell);
             });
             var modifying_buttons = document.createElement("td");
@@ -84,10 +164,13 @@ function insert_row() {
                 this.insertBefore(new_row, this.lastChild);
             });
             $('.buffered-row').find('button[name=insert]').click(function () {
-                $(this).parents('.buffered-row').each(function() {
+                $(this).parents('.buffered-row').each(function () {
                     var data = {};
                     $(this).children('.datacell').each(function () {
-                        data[$(this).attr('name')] = $(this).children('textarea').val();
+                        var tmp = $(this).children('textarea').val();
+                        if (tmp == '')
+                            tmp = null;
+                        data[$(this).attr('name')] = tmp;
                     });
                     httpPostAsync(tablepath + '/insert', data, function (e, t) {
                         if (!e) {
@@ -100,7 +183,7 @@ function insert_row() {
                     });
                 });
             });
-            $('.buffered-row').find('button[name=delete]').click(function() {
+            $('.buffered-row').find('button[name=delete]').click(function () {
                 $(this).parents('.buffered-row').remove();
             });
         }
@@ -139,7 +222,8 @@ function httpGetAsync(theUrl, callback) {
             callback(xmlHttp.statusText, xmlHttp.responseText);
         }
     }
-    xmlHttp.open("GET", theUrl, true);
+    xmlHttp.open("GET", encodeURI(theUrl), true);
+    xmlHttp.setRequestHeader('Content-Type', '*/*; charset=UTF-8');
     xmlHttp.send(null);
 }
 
@@ -152,7 +236,7 @@ function httpPostAsync(theUrl, data, callback) {
             callback(xmlHttp.statusText, xmlHttp.responseText);
         }
     }
-    xmlHttp.open("POST", theUrl, true);
+    xmlHttp.open("POST", encodeURI(theUrl), true);
     xmlHttp.setRequestHeader('Content-Type', 'application/json; charset=UTF-8');
     xmlHttp.send(JSON.stringify(data));
 }
@@ -178,10 +262,25 @@ function getTableContents() {
     httpGetAsync(tablepath + '/get', function (e, t) {
         if (!e) {
             contents = translate2table(JSON.parse(t));
-            setTable("data", contents.head, contents.body);
-            $(".datatext").dblclick(function () {
-                this.removeAttribute('readonly');
-            });
+            if (!contents.head.length) {
+                httpGetAsync(tablepath + '/getcolumns', function (e, t) {
+                    if (!e) {
+                        contents.head = JSON.parse(t).filter(column => column !== 'ID');
+                        console.log(contents.head);
+                        setTable("data", contents.head, contents.body);
+                    }
+                    else {
+                        console.log(e);
+                        new_alert('danger', t);
+                    }
+                });
+            }
+            else {
+                setTable("data", contents.head, contents.body);
+                $(".datatext").dblclick(function () {
+                    this.removeAttribute('readonly');
+                });
+            }
         }
         else {
             console.log(e);
@@ -209,7 +308,10 @@ function update_row(row_id) {
             var data = {};
             var columns = JSON.parse(t).filter(column => column !== 'ID');
             $('#' + row_id).children('.datacell').each(function (index) {
-                data[columns[index]] = $(this).children('textarea').val();
+                var tmp = $(this).children('textarea').val();
+                if (tmp == '')
+                    tmp = null;
+                data[$(this).attr('name')] = tmp;
             });
             httpPostAsync(tablepath + '/update?id=' + row_id, data, function (e, t) {
                 if (!e) {

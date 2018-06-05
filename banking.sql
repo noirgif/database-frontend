@@ -2,10 +2,11 @@
 /* DBMS name:      MySQL 5.0                                    */
 /* Created on:     2018/06/05 0:10:02                           */
 /*==============================================================*/
-create database if not exists bank;
+drop database if exists bank;
+create database bank;
 use bank;
 
-drop table if exists 储蓄帐户;
+drop table if exists 储蓄账户;
 
 drop table if exists 员工;
 
@@ -13,11 +14,11 @@ drop table if exists 客户;
 
 drop table if exists 客户_贷款;
 
-drop table if exists 帐户;
+drop table if exists 账户;
 
 drop table if exists 支付;
 
-drop table if exists 支票帐户;
+drop table if exists 支票账户;
 
 drop table if exists 支行;
 
@@ -26,16 +27,16 @@ drop table if exists 贷款;
 drop table if exists 部门;
 
 /*==============================================================*/
-/* Table: 储蓄帐户                                                  */
+/* Table: 储蓄账户                                                  */
 /*==============================================================*/
-create table 储蓄帐户
+create table 储蓄账户
 (
       ID    int auto_increment,
    支行名字                 char(40) not null,
-   帐户号码                 int not null,
+   账户号码                 int not null,
    客户身份证                char(18) not null,
-   储蓄帐户利率               real not null,
-   储蓄帐户货币类型             char(3) not null,
+   储蓄账户利率               real not null,
+   储蓄账户货币类型             char(3) not null,
    primary key(ID),
    unique (支行名字, 客户身份证)
 );
@@ -69,7 +70,7 @@ create table 客户
    联系人手机号               char(40) not null,
    联系人邮箱                char(40) not null,
    联系人关系                char(40) not null,
-   员工客户关系               char(40),
+   员工客户关系               char(25) check(员工客户关系 in ('贷款负责人', '银行账户负责人')),
    primary key (ID)
 );
 
@@ -86,27 +87,27 @@ create table 客户_贷款
 );
 
 /*==============================================================*/
-/* Table: 帐户                                                    */
+/* Table: 账户                                                    */
 /*==============================================================*/
-create table 帐户
+create table 账户
 (
    ID  int auto_increment,
-   账户号码 int not null,
-   帐户开户日期               datetime not null,
-   帐户最近访问日期             datetime not null,
-   帐户余额                 float(8,2) not null,
-   unique (帐户号码),
+   UM_账户号码 int,
+   账户开户日期               datetime not null,
+   账户最近访问日期             datetime not null,
+   账户余额                 float(8,2) not null,
+   unique (UM_账户号码),
    primary key(ID)
 );
 
 delimiter $$
-create or replace trigger borrow_and_return_i
-after insert on 账户
+create or replace trigger account_id
+before insert on 账户
 for each row
 begin
-    update 账户
-            set 账户号码 = new.ID
-            where ID = new.ID;
+      declare next_id int;
+      set next_id = (SELECT AUTO_INCREMENT FROM information_schema.TABLES WHERE TABLE_SCHEMA=DATABASE() AND TABLE_NAME='账户');
+      set new.UM_账户号码 = next_id;
 end;
 $$
 delimiter ;
@@ -117,36 +118,47 @@ delimiter ;
 create table 支付
 (  
    ID int auto_increment,
-   支付号                  int not null,
+   UM_支付号                  int,
    贷款号                  int,
    支付日期                 datetime not null,
    支付金额                 float(8,2) not null,
-   unique (支付号),
+   unique (UM_支付号),
    primary key(ID)
 );
 
 delimiter $$
-create or replace trigger borrow_and_return_i
+create or replace trigger payment_id
+before insert on 支付
+for each row
+begin
+      declare next_id int;
+      set next_id = (SELECT AUTO_INCREMENT FROM information_schema.TABLES WHERE TABLE_SCHEMA=DATABASE() AND TABLE_NAME='支付');
+      set new.UM_支付号 = next_id;
+end;
+$$
+create or replace trigger payment_update
 after insert on 支付
 for each row
 begin
-    update 支付
-            set 支付号 = new.ID
-            where ID = new.ID;
+      if (select sum(支付金额) from 支付 where 贷款号=new.贷款号) < (select 贷款金额 from 贷款 where UM_贷款号=new.贷款号) then
+            update 贷款 set UM_状态='发放中' where UM_贷款号=new.贷款号;
+      else
+            update 贷款 set UM_状态='已全部发放' where UM_贷款号=new.贷款号;
+      end if;
 end;
 $$
 delimiter ;
 
 /*==============================================================*/
-/* Table: 支票帐户                                                  */
+/* Table: 支票账户                                                  */
 /*==============================================================*/
-create table 支票帐户
+create table 支票账户
 (
    ID int auto_increment,
    支行名字                 char(40) not null,
    客户身份证                char(18) not null,
-   帐户号码                 int not null,
-   支票帐户透支额              float(8,2) not null,
+   账户号码                 int not null,
+   支票账户透支额              float(8,2) not null,
 unique (支行名字, 客户身份证),
 primary key(ID)
 );
@@ -170,20 +182,34 @@ create table 支行
 create table 贷款
 (
    ID                 int auto_increment,
-   贷款号               int not null,
+   UM_贷款号               int,
    支行名字                 char(40),
    贷款金额                 float(8,2) not null,
+   UM_状态                 char(10),
+   unique(UM_贷款号),
    primary key (ID)
 );
 
 delimiter $$
-create or replace trigger borrow_and_return_i
-after insert on 贷款
+create or replace trigger credit_id
+before insert on 贷款
 for each row
 begin
-    update 贷款
-            set 贷款号 = new.ID
-            where ID = new.ID;
+      declare next_id int;
+      set next_id = (SELECT AUTO_INCREMENT FROM information_schema.TABLES WHERE TABLE_SCHEMA=DATABASE() AND TABLE_NAME='贷款');
+      set new.UM_贷款号 = next_id;
+      set new.UM_状态 = '未支付';
+end;
+$$
+
+create or replace trigger credit_del_id
+before delete on 贷款
+for each row
+begin
+      if old.UM_状态='发放中' then
+            signal sqlstate '25252'
+            set message_text = '发放中贷款记录不能删除';
+      end if;
 end;
 $$
 delimiter ;
@@ -203,13 +229,13 @@ create table 部门
    primary key(ID)
 );
 
-alter table 储蓄帐户 add constraint FK_储蓄帐户 foreign key (支行名字)
+alter table 储蓄账户 add constraint FK_储蓄账户 foreign key (支行名字)
       references 支行 (支行名字) on delete restrict on update restrict;
 
-alter table 储蓄帐户 add constraint FK_储蓄帐户2 foreign key (帐户号码)
-      references 帐户 (帐户号码) on delete restrict on update restrict;
+alter table 储蓄账户 add constraint FK_储蓄账户2 foreign key (账户号码)
+      references 账户 (UM_账户号码) on delete restrict on update restrict;
 
-alter table 储蓄帐户 add constraint FK_储蓄帐户3 foreign key (客户身份证)
+alter table 储蓄账户 add constraint FK_储蓄账户3 foreign key (客户身份证)
       references 客户 (客户身份证) on delete restrict on update restrict;
 
 alter table 员工 add constraint FK_任职 foreign key (部门号)
@@ -219,22 +245,22 @@ alter table 客户 add constraint FK_员工_客户 foreign key (员工身份证�
       references 员工 (员工身份证号) on delete restrict on update restrict;
 
 alter table 客户_贷款 add constraint FK_客户_贷款 foreign key (贷款号)
-      references 贷款 (贷款号) on delete restrict on update restrict;
+      references 贷款 (UM_贷款号) on delete restrict on update restrict;
 
 alter table 客户_贷款 add constraint FK_客户_贷款2 foreign key (客户身份证)
       references 客户 (客户身份证) on delete restrict on update restrict;
 
 alter table 支付 add constraint FK_贷款_支付 foreign key (贷款号)
-      references 贷款 (贷款号) on delete restrict on update restrict;
+      references 贷款 (UM_贷款号) on delete restrict on update restrict;
 
-alter table 支票帐户 add constraint FK_支票帐户 foreign key (支行名字)
+alter table 支票账户 add constraint FK_支票账户 foreign key (支行名字)
       references 支行 (支行名字) on delete restrict on update restrict;
 
-alter table 支票帐户 add constraint FK_支票帐户2 foreign key (客户身份证)
+alter table 支票账户 add constraint FK_支票账户2 foreign key (客户身份证)
       references 客户 (客户身份证) on delete restrict on update restrict;
 
-alter table 支票帐户 add constraint FK_支票帐户3 foreign key (帐户号码)
-      references 帐户 (帐户号码) on delete restrict on update restrict;
+alter table 支票账户 add constraint FK_支票账户3 foreign key (账户号码)
+      references 账户 (UM_账户号码) on delete restrict on update restrict;
 
 alter table 贷款 add constraint FK_支行_贷款 foreign key (支行名字)
       references 支行 (支行名字) on delete restrict on update restrict;
