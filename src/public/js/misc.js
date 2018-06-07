@@ -266,7 +266,6 @@ function getTableContents() {
                 httpGetAsync(tablepath + '/getcolumns', function (e, t) {
                     if (!e) {
                         contents.head = JSON.parse(t).filter(column => column !== 'ID');
-                        console.log(contents.head);
                         setTable("data", contents.head, contents.body);
                     }
                     else {

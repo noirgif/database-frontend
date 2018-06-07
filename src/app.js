@@ -9,7 +9,8 @@ var connection = mysql.createConnection({
     user: 'root',
     password: '',
     server: 'localhost',
-    database: database
+    database: database,
+    multipleStatements: true
 });
 
 // Start server and listen on http://localhost:8081/
@@ -73,13 +74,11 @@ app.post('^/:table/get$', function (req, res) {
     connection.query('SELECT 1 FROM ?? LIMIT 1;', [table], function (err, results, fields) {
         if (err)
             sqlerrorhandler(req, res, err);
-        else
-        {
+        else {
             var condition = [];
             var conditionstring = '';
             var querystring = 'SELECT * from ??';
-            for (key in req.body)
-            {
+            for (key in req.body) {
                 condition.push(connection.escapeId(key) + '=' + connection.escape(req.body[key]));
             }
             conditionstring = condition.join(' AND ')
@@ -144,4 +143,62 @@ app.post('^/:table/update$', function (req, res) {
             res.send(result.affectedRows + " record(s) affected");
         }
     });
+});
+
+/* WARNING APPLICATION SPECIFIC */
+// aggregated data of the bank
+app.get('^/aggr_data', function (req, res) {
+    var year = parseInt(req.query.year);
+    var byyear = req.query.byyear;
+    var bymonth = req.query.bymonth;
+    var branch = req.query.branch;
+    console.log(branch);
+    if (byyear) {
+        connection.query('select year(`支付日期`) as y, sum(`支付金额`) as s from (select * from `支付` where `贷款号` in (select `UM_贷款号` from `贷款` where `支行名字`=?)) as t group by y;select y, count(distinct id) as s from (select year(`账户最近访问日期`) as y, `客户身份证` as id from `储蓄账户`, `账户` where `账户号码`=`UM_账户号码` and `支行名字`=?) as t group by y;',
+        //connection.query('select * from 支付;'
+            [branch, branch],
+            function (err, results, fields) {
+                if (err) {
+                    sqlerrorhandler(req, res, err);
+                }
+                else {
+                    res.end(JSON.stringify(results));
+                }
+            });
+    }
+    else {
+        // by year
+        if (isNaN(year) || year < 0) {
+            res.status(400).end('Illegal year');
+            return;
+        }
+        if (bymonth) {
+            // by month
+            connection.query('select month(`支付日期`) as m, sum(`支付金额`) as s from (select * from 支付 where 贷款号 in (select UM_贷款号 from 贷款 where 支行名字=?)) as t where year(`支付日期`)=? group by m;\
+        select m, count(distinct id) as s from (select month(`账户最近访问日期`) as m, `客户身份证` as id from `储蓄账户`, `账户` where `账户号码`=`UM_账户号码` and 支行名字=? and year(`账户最近访问日期`)=?) as t group by m; \
+        '
+                , [branch, year, branch, year], function (err, results, fields) {
+                    if (err) {
+                        sqlerrorhandler(req, res, err);
+                    }
+                    else {
+                        res.end(JSON.stringify(results));
+                    }
+                });
+        }
+        else {
+            // by season
+            connection.query("select concat('Q', cast(floor(month(`支付日期`) / 3) + 1 as char)) as q , sum(`支付金额`) as s from (select * from 支付 where 贷款号 in (select UM_贷款号 from 贷款 where 支行名字=?)) as t where year(`支付日期`)=? group by q;\
+        select q, count(distinct id) as s from (select concat('Q', cast(floor(month(`账户最近访问日期`) / 3) + 1 as char)) as q  , `客户身份证` as id from `储蓄账户`, `账户` where `账户号码`=`UM_账户号码` and `支行名字`=?and year(`账户最近访问日期`)=?) as t group by q; \
+        "
+                , [branch, year, branch, year], function (err, results, fields) {
+                    if (err) {
+                        sqlerrorhandler(req, res, err);
+                    }
+                    else {
+                        res.end(JSON.stringify(results));
+                    }
+                });
+        }
+    }
 });

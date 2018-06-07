@@ -2,79 +2,178 @@
 <html>
 
 <head>
-  <meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
-  <title>Test</title>
-  <script src="/public/js/misc.js"></script>
-  <script src="/public/js/jquery-3.3.1.min.js"></script>
-  <script src="/public/js/bootstrap.min.js"></script>
-  <script src="/public/js/echarts.js"></script>
-  <link rel="stylesheet" href="/public/css/bootstrap.min.css">
+    <meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
+    <title>Test</title>
+    <script src="/public/js/misc.js"></script>
+    <script src="/public/js/jquery-3.3.1.min.js"></script>
+    <script src="/public/js/bootstrap.min.js"></script>
+    <script src="/public/js/echarts.js"></script>
+    <link rel="stylesheet" href="/public/css/bootstrap.min.css">
 </head>
 
 <body onload="getTableList()">
-  <nav class="navbar navbar-light flex-column flex-md-row bd-navbar navbar-expand-lg" style="background-color: #e3f2fd;">
-    <span class="navbar-text">
-      Database Management
-    </span>
-    <ul class="navbar-nav mr-auto">
-      <li class="nav-item">
-        <a class="nav-link" href="/">Home</a>
-      </li>
-      <li class="nav-item active">
-        <a class="nav-link" href="/charts">Charts
-          <span class="sr-only">(current)</span>
-        </a>
-      </li>
-    </ul>
-  </nav>
-  <div class="container-fluid">
-    <div class="row flex-xl-roadmap">
-      <div class="col-12 col-md-3 col-xl-2 bd-sidebar">
-        <nav class="bd-links" id="bd-docs-nav">
-          <div class="list-group">
-            <div class="list-group-item">
-              System Overview
+    <nav class="navbar navbar-light flex-column flex-md-row bd-navbar navbar-expand-lg" style="background-color: #e3f2fd;">
+        <span class="navbar-text">
+            Database Management
+        </span>
+        <ul class="navbar-nav mr-auto">
+            <li class="nav-item">
+                <a class="nav-link" href="/">Home</a>
+            </li>
+            <li class="nav-item active">
+                <a class="nav-link" href="/charts">Charts
+                    <span class="sr-only">(current)</span>
+                </a>
+            </li>
+        </ul>
+    </nav>
+    <div class="container-fluid">
+        <div class="row flex-xl-roadmap">
+            <div class="col-12 col-md-3 col-xl-2 bd-sidebar">
+                <nav class="bd-links" id="bd-docs-nav">
+                    <div class="list-group">
+                        <div class="list-group-item">
+                            System Overview
+                        </div>
+                        <div id="tables">
+                        </div>
+                    </div>
+                </nav>
             </div>
-            <div id="tables">
-            </div>
-          </div>
-        </nav>
-      </div>
-
-      <main class="col-12 col-md-9 col-xl-8 py-md-3 pl-md-5 bd-content" role="main" id="mainform">
-        <div id="debit-cost" style="width: 600px;height:400px;"></div>
-        <div id="credit-cost"></div>
-      </main>
+            <main class="col-12 col-md-9 col-xl-8 py-md-3 pl-md-5 bd-content" role="main" id="mainform">
+                <div class="input-group">
+                    <div class="input-group-prepend btn-group btn-group-toggle" data-toggle="buttons">
+                        <label class="btn btn-outline-info btn-secondary active" id="byyear">
+                            <input type="radio" name="options" autocomplete="off" checked>By year
+                        </label>
+                        <label class="btn btn-outline-info btn-secondary" id="bymonth">
+                            <input type="radio" name="options" autocomplete="off">By month
+                        </label>
+                        <label class="btn btn-outline-info btn-secondary" id="byquarter">
+                            <input type="radio" name="options" autocomplete="off">By quarter
+                        </label>
+                    </div>
+                    <input type="text" id="yearinput" class="form-control" placeholder="year" disabled>
+                    <input type="text" id="branchinput" class="form-control" placeholder="支行">
+                    <div class="input-group-append">
+                        <button type="button" class="btn btn-outline-info" id="genchartsbutton">Look up</button>
+                    </div>
+                </div>
+                <div id="debit-customer" style="width: 40%; height: 300px; display: inline-block;"></div>
+                <div id="credit-amount" style="width: 40%; height: 300px; display: inline-block;"></div>
+            </main>
+        </div>
     </div>
-  </div>
 </body>
 
 <script>
-  // 基于准备好的dom，初始化echarts实例
-  var myChart = echarts.init(document.getElementById('debit-cost'));
+    echarts.init($('#debit-customer')[0]);
+    echarts.init($('#credit-amount')[0]);
+    var byyear = true;
+    var bymonth = false;
+    $('#byyear').click(function () {
+        $('#yearinput').prop('disabled', true);
+        byyear = true;
+    });
+    $('#bymonth').click(function () {
+        $('#yearinput').prop('disabled', false);
+        byyear = false;
+        bymonth = true;
+    });
+    $('#byquarter').click(function () {
+        $('#yearinput').prop('disabled', false);
+        byyear = false;
+        bymonth = false;
+    });
+    $('#genchartsbutton').click(function () {
+        var year = $('#yearinput').val();
+        var branch = $('#branchinput').val();
+        console.log(year);
+        if (byyear) {
+            httpGetAsync('/aggr_data?byyear=1&branch=' + branch, function (e, t) {
+                if (!e) {
+                    var res = JSON.parse(t);
+                    draw('credit-amount', { title: branch + '支行' + '各年贷款金额', label: '金额' }, res[0]);
+                    draw('debit-customer', { title: branch + '支行' + '各年储蓄用户', label: '用户数' }, res[1]);
+                }
+                else {
+                    console.log(e);
+                    new_alert('danger', t);
+                }
+            });
+        }
+        else 
+        if (bymonth) {
+            httpGetAsync('/aggr_data?year='+ year +'&bymonth=1&branch=' + branch, function (e, t) {
+                if (!e) {
+                    var res = JSON.parse(t);
+                    console.log(res);
+                    draw('credit-amount', { title: branch + '支行' + year + '年各月贷款金额', label: '金额' }, res[0]);
+                    draw('debit-customer', { title: branch + '支行' + year + '年各月储蓄用户', label: '用户数' }, res[1]);
+                }
+                else {
+                    console.log(e);
+                    new_alert('danger', t);
+                }
+            });
+        }
+        else {
+            httpGetAsync('/aggr_data?year='+ year + '&branch=' + branch, function (e, t) {
+                if (!e) {
+                    var res = JSON.parse(t);
+                    draw('credit-amount', { title: branch + '支行' + year + '年各季度贷款金额', label: '金额' }, res[0]);
+                    draw('debit-customer', { title: branch + '支行' + year + '年各季度储蓄用户', label: '用户数' }, res[1]);
+                }
+                else {
+                    console.log(e);
+                    new_alert('danger', t);
+                }
+            });
+        }
+    });
 
-  // 指定图表的配置项和数据
-  var option = {
-    title: {
-      text: 'ECharts 入门示例'
-    },
-    tooltip: {},
-    legend: {
-      data: ['销量']
-    },
-    xAxis: {
-      data: ["衬衫", "羊毛衫", "雪纺衫", "裤子", "高跟鞋", "袜子"]
-    },
-    yAxis: {},
-    series: [{
-      name: '销量',
-      type: 'bar',
-      data: [5, 20, 36, 10, 10, 20]
-    }]
-  };
-
-  // 使用刚指定的配置项和数据显示图表。
-  myChart.setOption(option);
+    function draw(id, opt, data) {
+        var myChart = echarts.getInstanceByDom(document.getElementById(id));
+        if (!myChart)
+            myChart = echarts.init(document.getElementById(id));
+        var xdata = [];
+        var ydata = [];
+        data.forEach(e => {
+            if ('y' in e) {
+                xdata.push(e.y + '年');
+            } else if ('m' in e) {
+                xdata.push(e.m + '月');
+            }
+            else if ('q' in e) {
+                xdata.push(e.q);
+            }
+            ydata.push(e.s);
+        });
+        if (!xdata.length) {
+            myChart.dispose();
+            return;
+        }
+        option = {
+            title: {
+                text: opt.title
+            },
+            xAxis: {
+                type: 'category',
+                data: xdata
+            },
+            tooltip: {},
+            yAxis: {
+                type: 'value'
+            },
+            series: [{
+                name: opt.label,
+                data: ydata,
+                type: 'line'
+            }]
+        };
+        // 使用刚指定的配置项和数据显示图表。
+        myChart.setOption(option);
+    }
 </script>
 
 </html>
