@@ -2,6 +2,14 @@
 
 The frontend for a database, allowing editing, and things.
 
+## How to use
+
+```
+npm start
+```
+
+And visit `localhost:8081`.
+
 ## Structure
 
 1. Javascript send queries with GET requests, and process the results in the webpage
@@ -19,5 +27,3 @@ The frontend for a database, allowing editing, and things.
     * `/{table name}/insert` : insert a new line into the db, the values of the columns is in the POST data, separated by EOL
     * `/{table name}/delete?id={id}` : delete a line from db
     * `/{table name}/update?id={id}` : update a single row with POST request, in the POST request, each value of the updated columns takes up a line
-
-2. 
